@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.9.0;
+pragma solidity ^0.8.25;
 
-import "./DaoInterface.sol";
+import {IProviderDaos} from "./IProviderDaos.sol";
 
 abstract contract Proposal {
     address public dao;
+    bytes32 public daoId;
     uint256 public id;
     address public proposer;
     mapping(address => bool) public hasVoted;
@@ -14,7 +15,9 @@ abstract contract Proposal {
     enum ProposalStatus { Pending, Approved, Rejected, Executed }
     ProposalStatus public status;
 
-    constructor(uint256 _id, address _proposer) {
+    constructor(address _dao, bytes32 _daoId, uint256 _id, address _proposer) {
+        dao = _dao;
+        daoId = _daoId;
         id = _id;
         proposer = _proposer;
         status = ProposalStatus.Pending;
@@ -23,7 +26,7 @@ abstract contract Proposal {
     function execute() virtual public;
 
     function checkStatus() public {
-        memory votingThreshold = IDao(dao).getVotingThreshold();
+        uint256 votingThreshold = IProviderDaos(dao).getVotingThreshold(daoId);
         if (yesVotes >= votingThreshold) {
             status = ProposalStatus.Approved;
             execute();
@@ -49,30 +52,24 @@ abstract contract Proposal {
 contract AddMemberProposal is Proposal {
     address public newMember;
 
-    constructor(uint256 _id, address _proposer, address _newMember) {
-        id = _id;
-        proposer = _proposer;
-        status = ProposalStatus.Pending;
+    constructor(address _dao, bytes32 _daoId, uint256 _id, address _proposer, address _newMember) Proposal(_dao, _daoId, _id, _proposer) {
         newMember = _newMember;
     }
 
     function execute() override public {
         require(status == ProposalStatus.Approved, "Proposal must be Approved to execute");
         status = ProposalStatus.Executed;
-        IDao(dao).addMember(newMember);
+        IProviderDaos(dao).addMember(daoId, id, newMember);
     }
 }
 
 contract ChangeMemberProposal is Proposal {
     address public member;
-    bool newIsMember;
-    bool newIsProvider;
-    bool newIsRouter;
+    bool public newIsMember;
+    bool public newIsProvider;
+    bool public newIsRouter;
 
-    constructor(uint256 _id, address _proposer, address _member, bool _newIsMember, bool _newIsProvider, bool _newIsRouter) {
-        id = _id;
-        proposer = _proposer;
-        status = ProposalStatus.Pending;
+    constructor(address _dao, bytes32 _daoId, uint256 _id, address _proposer, address _member, bool _newIsMember, bool _newIsProvider, bool _newIsRouter) Proposal(_dao, _daoId, _id, _proposer) {
         member = _member;
         newIsMember = _newIsMember;
         newIsProvider = _newIsProvider;
@@ -82,7 +79,7 @@ contract ChangeMemberProposal is Proposal {
     function execute() override public {
         require(status == ProposalStatus.Approved, "Proposal must be Approved to execute");
         status = ProposalStatus.Executed;
-        IDao(dao).changeMember(member, newIsMember, newIsProvider, newIsRouter);
+        IProviderDaos(dao).changeMember(daoId, id, member, newIsMember, newIsProvider, newIsRouter);
     }
 }
 
@@ -91,10 +88,7 @@ contract ChangeParametersProposal is Proposal {
     uint256 public newServeTimeoutSeconds;
     uint256 public newMaxOutstandingPayments;
 
-    constructor(uint256 _id, address _proposer, uint256 _newQueueResponseTimeoutSeconds, uint256 _newServeTimeoutSeconds, uint256 _newMaxOutstandingPayments) {
-        id = _id;
-        proposer = _proposer;
-        status = ProposalStatus.Pending;
+    constructor(address _dao, bytes32 _daoId, uint256 _id, address _proposer, uint256 _newQueueResponseTimeoutSeconds, uint256 _newServeTimeoutSeconds, uint256 _newMaxOutstandingPayments) Proposal(_dao, _daoId, _id, _proposer) {
         newQueueResponseTimeoutSeconds = _newQueueResponseTimeoutSeconds;
         newServeTimeoutSeconds = _newServeTimeoutSeconds;
         newMaxOutstandingPayments = _newMaxOutstandingPayments;
@@ -103,23 +97,20 @@ contract ChangeParametersProposal is Proposal {
     function execute() override public {
         require(status == ProposalStatus.Approved, "Proposal must be Approved to execute");
         status = ProposalStatus.Executed;
-        IDao(dao).changeParameters(newQueueResponseTimeoutSeconds, newServeTimeoutSeconds, newMaxOutstandingPayments);
+        IProviderDaos(dao).changeParameters(daoId, id, newQueueResponseTimeoutSeconds, newServeTimeoutSeconds, newMaxOutstandingPayments);
     }
 }
 
 contract ChangeIsPermissionedProposal is Proposal {
     bool public newIsPermissioned;
 
-    constructor(uint256 _id, address _proposer, bool _newIsPermissioned) {
-        id = _id;
-        proposer = _proposer;
-        status = ProposalStatus.Pending;
+    constructor(address _dao, bytes32 _daoId, uint256 _id, address _proposer, bool _newIsPermissioned) Proposal(_dao, _daoId, _id, _proposer) {
         newIsPermissioned = _newIsPermissioned;
     }
 
     function execute() override public {
         require(status == ProposalStatus.Approved, "Proposal must be Approved to execute");
         status = ProposalStatus.Executed;
-        IDao(dao).changeIsPermissioned(newIsPermissioned);
+        IProviderDaos(dao).changeIsPermissioned(daoId, id, newIsPermissioned);
     }
 }
