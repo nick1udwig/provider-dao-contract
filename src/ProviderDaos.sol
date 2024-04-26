@@ -6,7 +6,10 @@ import {Proposal, AddMemberProposal, ChangeMemberProposal, ChangeParametersPropo
 
 /// @title Multi-DAO Contract for managing decentralized organizations
 contract ProviderDaos is IProviderDaos {
+
+
     // state
+
 
     struct Member {
         address addr;
@@ -31,6 +34,7 @@ contract ProviderDaos is IProviderDaos {
 
 
     // create a new DAO
+
 
     event DaoCreated(bytes32 daoId);
     event MemberAdded(bytes32 daoId, address member);
@@ -58,13 +62,40 @@ contract ProviderDaos is IProviderDaos {
 
     // utility
 
+
     function getVotingThreshold(bytes32 daoId) public view returns (uint256) {
         // for now, just assume majority rules
         return 1 + (daos[daoId].numMembers - 1) / 2;
     }
 
+    function getProposalAddress(bytes32 daoId, uint256 proposalId) public view returns (address) {
+        return daos[daoId].proposals[proposalId];
+    }
+
+    function getMemberInfo(bytes32 daoId, address memberAddress) public view returns (bool isMember, bool isProvider, bool isRouter) {
+        Member memory member = daos[daoId].members[memberAddress];
+        return (member.isMember, member.isProvider, member.isRouter);
+    }
+
+    function getQueueResponseTimeoutSeconds(bytes32 daoId) public view returns (uint256) {
+        return daos[daoId].queueResponseTimeoutSeconds;
+    }
+
+    function getServeTimeoutSeconds(bytes32 daoId) public view returns (uint256) {
+        return daos[daoId].serveTimeoutSeconds;
+    }
+
+    function getMaxOutstandingPayments(bytes32 daoId) public view returns (uint256) {
+        return daos[daoId].maxOutstandingPayments;
+    }
+
+    function getIsPermissioned(bytes32 daoId) public view returns (bool) {
+        return daos[daoId].isPermissioned;
+    }
+
 
     // governance
+
 
     modifier onlyMember(bytes32 daoId) {
         require(daos[daoId].members[msg.sender].isMember, "Not a member");
@@ -159,5 +190,4 @@ contract ProviderDaos is IProviderDaos {
         Proposal(daos[daoId].proposals[_proposalId]).vote(approve);
         emit Voted(daoId, msg.sender, _proposalId, approve);
     }
-
 }
