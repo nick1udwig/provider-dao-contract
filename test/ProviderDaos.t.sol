@@ -30,23 +30,20 @@ contract ProviderDaosTest is Test {
         // Simulate advancing time to finalize the proposal (if necessary, based on the logic)
         // skip(1 days);
 
-        // Execute the proposal
-        AddMemberProposal(providerDaos.getProposalAddress(daoId, proposalId)).execute();
         (bool isMember, , ) = providerDaos.getMemberInfo(daoId, newMember);
         assertTrue(isMember, "New member should be added.");
     }
 
     // Test member change proposal
     function testChangeMember() public {
-        address member = address(0xBEEF);
+        //address member = address(0xBEEF);
+        address member = address(this);
         bool newIsMember = false;
         bool newIsProvider = true;
         bool newIsRouter = false;
         proposalId = providerDaos.createProposalChangeMember(daoId, member, newIsMember, newIsProvider, newIsRouter);
         providerDaos.vote(daoId, proposalId, true);
 
-        // Execute the proposal
-        ChangeMemberProposal(providerDaos.getProposalAddress(daoId, proposalId)).execute();
         (bool isMember, , ) = providerDaos.getMemberInfo(daoId, member);
         assertFalse(isMember, "Member status should be changed.");
     }
@@ -59,8 +56,6 @@ contract ProviderDaosTest is Test {
         proposalId = providerDaos.createProposalChangeParameters(daoId, newQueueResponseTimeout, newServeTimeout, newMaxPayments);
         providerDaos.vote(daoId, proposalId, true);
 
-        // Execute the proposal
-        ChangeParametersProposal(providerDaos.getProposalAddress(daoId, proposalId)).execute();
         assertEq(providerDaos.getQueueResponseTimeoutSeconds(daoId), newQueueResponseTimeout, "Queue response timeout should be updated.");
         assertEq(providerDaos.getServeTimeoutSeconds(daoId), newServeTimeout, "Serve timeout should be updated.");
         assertEq(providerDaos.getMaxOutstandingPayments(daoId), newMaxPayments, "Max outstanding payments should be updated.");
@@ -72,8 +67,6 @@ contract ProviderDaosTest is Test {
         proposalId = providerDaos.createProposalChangeIsPermissioned(daoId, newIsPermissioned);
         providerDaos.vote(daoId, proposalId, true);
 
-        // Execute the proposal
-        ChangeIsPermissionedProposal(providerDaos.getProposalAddress(daoId, proposalId)).execute();
         assertFalse(providerDaos.getIsPermissioned(daoId), "DAO should not be permissioned anymore.");
     }
 }

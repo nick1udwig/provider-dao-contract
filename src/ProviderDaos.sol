@@ -32,11 +32,8 @@ contract ProviderDaos is IProviderDaos {
     mapping(bytes32 => Dao) public daos;
     uint256 public numDaos;
 
-
-    // create a new DAO
-
-
     event DaoCreated(bytes32 daoId);
+    event DaoDestroyed(bytes32 daoId);
     event MemberAdded(bytes32 daoId, address member);
     event MemberChanged(bytes32 daoId, address member, bool isMember, bool isProvider, bool isRouter);
     event ParametersChanged(bytes32 daoId, uint256 queueResponseTimeoutSeconds, uint256 serveTimeoutSeconds, uint256 maxOutstandingPayments);
@@ -44,12 +41,17 @@ contract ProviderDaos is IProviderDaos {
     event ProposalCreated(bytes32 daoId, uint256 proposalId);
     event Voted(bytes32 daoId, address voter, uint256 proposalId, bool vote);
 
+
+    // create or destroy a DAO
+
+
     function createDao() public returns (bytes32) {
         bytes32 daoId = keccak256(abi.encodePacked(msg.sender, block.timestamp, numDaos));
         numDaos++;
 
         Dao storage dao = daos[daoId];
         dao.members[msg.sender] = Member(msg.sender, true, false, true);
+        dao.numMembers += 1;
         dao.numProposals = 0;
         dao.isPermissioned = true;
 
@@ -59,12 +61,21 @@ contract ProviderDaos is IProviderDaos {
         return daoId;
     }
 
+    function destroyDao(bytes32 daoId) private {
+        require(daos[daoId].numMembers == 0, "Cannot destroy a DAO that still has members");
+        require(numDaos > 0, "Cannot destory a non-existent DAO");
+        numDaos--;
+        delete daos[daoId];
+
+        emit DaoDestroyed(daoId);
+    }
 
     // utility
 
 
     function getVotingThreshold(bytes32 daoId) public view returns (uint256) {
         // for now, just assume majority rules
+        require(daos[daoId].numMembers > 0, "An empty DAO has no voting threshold");
         return 1 + (daos[daoId].numMembers - 1) / 2;
     }
 
@@ -103,47 +114,58 @@ contract ProviderDaos is IProviderDaos {
     }
 
     function addMember(bytes32 daoId, uint256 proposalId, address _member) public {
-        if (daos[daoId].isPermissioned) {
-            require(msg.sender == daos[daoId].proposals[proposalId], "Only Proposal can execute permissioned AddMember");
+        Dao storage dao = daos[daoId];
+        if (dao.isPermissioned) {
+            require(msg.sender == dao.proposals[proposalId], "Only Proposal can execute permissioned AddMember");
         }
-        require(!daos[daoId].members[_member].isMember, "Already a member");
-        daos[daoId].members[_member] = Member(_member, true, true, false);
+        require(!dao.members[_member].isMember, "Already a member");
+        dao.members[_member] = Member(_member, true, true, false);
+        dao.numMembers += 1;
         emit MemberAdded(daoId, _member);
     }
 
     function changeMember(bytes32 daoId, uint256 proposalId, address _member, bool newIsMember, bool newIsProvider, bool newIsRouter) public {
-        require(msg.sender == daos[daoId].proposals[proposalId], "Only Proposal can execute permissioned AddMember");
-        require(daos[daoId].members[_member].isMember, "Must be a member");
-        if (daos[daoId].members[_member].isMember != newIsMember) {
-            daos[daoId].members[_member].isMember = newIsMember;
+        Dao storage dao = daos[daoId];
+        require(msg.sender == dao.proposals[proposalId], "Only Proposal can execute permissioned AddMember");
+        require(dao.members[_member].isMember, "Must be a member");
+        if (dao.members[_member].isMember != newIsMember) {
+            dao.members[_member].isMember = newIsMember;
         }
-        if (daos[daoId].members[_member].isProvider != newIsProvider) {
-            daos[daoId].members[_member].isProvider = newIsProvider;
+        if (dao.members[_member].isProvider != newIsProvider) {
+            dao.members[_member].isProvider = newIsProvider;
         }
-        if (daos[daoId].members[_member].isRouter != newIsRouter) {
-            daos[daoId].members[_member].isRouter = newIsRouter;
+        if (dao.members[_member].isRouter != newIsRouter) {
+            dao.members[_member].isRouter = newIsRouter;
+        }
+        if (!newIsMember) {
+            dao.numMembers -= 1;
+            if (dao.numMembers == 0) {
+                destroyDao(daoId);
+            }
         }
         emit MemberChanged(daoId, _member, newIsMember, newIsProvider, newIsRouter);
     }
 
     function changeParameters(bytes32 daoId, uint256 proposalId, uint256 newQueueResponseTimeoutSeconds, uint256 newServeTimeoutSeconds, uint256 newMaxOutstandingPayments) public {
-        require(msg.sender == daos[daoId].proposals[proposalId], "Only Proposal can execute permissioned AddMember");
-        if (daos[daoId].queueResponseTimeoutSeconds != newQueueResponseTimeoutSeconds) {
-            daos[daoId].queueResponseTimeoutSeconds = newQueueResponseTimeoutSeconds;
+        Dao storage dao = daos[daoId];
+        require(msg.sender == dao.proposals[proposalId], "Only Proposal can execute permissioned AddMember");
+        if (dao.queueResponseTimeoutSeconds != newQueueResponseTimeoutSeconds) {
+            dao.queueResponseTimeoutSeconds = newQueueResponseTimeoutSeconds;
         }
-        if (daos[daoId].serveTimeoutSeconds != newServeTimeoutSeconds) {
-            daos[daoId].serveTimeoutSeconds = newServeTimeoutSeconds;
+        if (dao.serveTimeoutSeconds != newServeTimeoutSeconds) {
+            dao.serveTimeoutSeconds = newServeTimeoutSeconds;
         }
-        if (daos[daoId].maxOutstandingPayments != newMaxOutstandingPayments) {
-            daos[daoId].maxOutstandingPayments = newMaxOutstandingPayments;
+        if (dao.maxOutstandingPayments != newMaxOutstandingPayments) {
+            dao.maxOutstandingPayments = newMaxOutstandingPayments;
         }
         emit ParametersChanged(daoId, newQueueResponseTimeoutSeconds, newServeTimeoutSeconds, newMaxOutstandingPayments);
     }
 
     function changeIsPermissioned(bytes32 daoId, uint256 proposalId, bool newIsPermissioned) public {
-        require(msg.sender == daos[daoId].proposals[proposalId], "Only Proposal can execute permissioned AddMember");
-        if (daos[daoId].isPermissioned != newIsPermissioned) {
-            daos[daoId].isPermissioned = newIsPermissioned;
+        Dao storage dao = daos[daoId];
+        require(msg.sender == dao.proposals[proposalId], "Only Proposal can execute permissioned AddMember");
+        if (dao.isPermissioned != newIsPermissioned) {
+            dao.isPermissioned = newIsPermissioned;
         }
         emit IsPermissionedChanged(daoId, newIsPermissioned);
     }
