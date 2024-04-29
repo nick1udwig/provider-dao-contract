@@ -13,7 +13,7 @@ contract ProviderDaosTest is Test {
     function setUp() public {
         deployer = address(this);
         providerDaos = new ProviderDaos();
-        daoId = providerDaos.createDao();  // Deployer is automatically a member
+        daoId = providerDaos.createDao(bytes32("foo.os"));  // Deployer is automatically a member
     }
 
     // Test creating a DAO
@@ -24,13 +24,13 @@ contract ProviderDaosTest is Test {
     // Test adding a member
     function testAddMember() public {
         address newMember = address(0xBEEF);
-        proposalId = providerDaos.createProposalAddMember(daoId, newMember);
+        proposalId = providerDaos.createProposalAddMember(daoId, newMember, bytes32("bar.os"));
         providerDaos.vote(daoId, proposalId, true);
 
         // Simulate advancing time to finalize the proposal (if necessary, based on the logic)
         // skip(1 days);
 
-        (bool isMember, , ) = providerDaos.getMemberInfo(daoId, newMember);
+        (, bool isMember, , ) = providerDaos.getMemberInfo(daoId, newMember);
         assertTrue(isMember, "New member should be added.");
     }
 
@@ -44,7 +44,7 @@ contract ProviderDaosTest is Test {
         proposalId = providerDaos.createProposalChangeMember(daoId, member, newIsMember, newIsProvider, newIsRouter);
         providerDaos.vote(daoId, proposalId, true);
 
-        (bool isMember, , ) = providerDaos.getMemberInfo(daoId, member);
+        (, bool isMember, , ) = providerDaos.getMemberInfo(daoId, member);
         assertFalse(isMember, "Member status should be changed.");
     }
 

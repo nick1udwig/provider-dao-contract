@@ -51,15 +51,17 @@ abstract contract Proposal {
 
 contract AddMemberProposal is Proposal {
     address public newMember;
+    bytes32 public nodeId;
 
-    constructor(address _dao, bytes32 _daoId, uint256 _id, address _proposer, address _newMember) Proposal(_dao, _daoId, _id, _proposer) {
+    constructor(address _dao, bytes32 _daoId, uint256 _id, address _proposer, address _newMember, bytes32 _nodeId) Proposal(_dao, _daoId, _id, _proposer) {
         newMember = _newMember;
+        nodeId = _nodeId;
     }
 
     function execute() override public {
         require(status == ProposalStatus.Approved, "Proposal must be Approved to execute");
         status = ProposalStatus.Executed;
-        IProviderDaos(dao).addMember(daoId, id, newMember);
+        IProviderDaos(dao).addMember(daoId, id, newMember, nodeId);
     }
 }
 

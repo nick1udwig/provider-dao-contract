@@ -13,6 +13,7 @@ contract ProviderDaos is IProviderDaos {
 
     struct Member {
         address addr;
+        bytes32 nodeId;
         bool isMember;
         bool isProvider;
         bool isRouter;
@@ -34,7 +35,7 @@ contract ProviderDaos is IProviderDaos {
 
     event DaoCreated(bytes32 daoId);
     event DaoDestroyed(bytes32 daoId);
-    event MemberAdded(bytes32 daoId, address member);
+    event MemberAdded(bytes32 daoId, address member, bytes32 nodeId);
     event MemberChanged(bytes32 daoId, address member, bool isMember, bool isProvider, bool isRouter);
     event ParametersChanged(bytes32 daoId, uint256 queueResponseTimeoutSeconds, uint256 serveTimeoutSeconds, uint256 maxOutstandingPayments);
     event IsPermissionedChanged(bytes32 daoId, bool isPermissioned);
@@ -45,18 +46,18 @@ contract ProviderDaos is IProviderDaos {
     // create or destroy a DAO
 
 
-    function createDao() public returns (bytes32) {
+    function createDao(bytes32 _nodeId) public returns (bytes32) {
         bytes32 daoId = keccak256(abi.encodePacked(msg.sender, block.timestamp, numDaos));
         numDaos++;
 
         Dao storage dao = daos[daoId];
-        dao.members[msg.sender] = Member(msg.sender, true, false, true);
+        dao.members[msg.sender] = Member(msg.sender, _nodeId, true, false, true);
         dao.numMembers += 1;
         dao.numProposals = 0;
         dao.isPermissioned = true;
 
         emit DaoCreated(daoId);
-        emit MemberAdded(daoId, msg.sender);
+        emit MemberAdded(daoId, msg.sender, _nodeId);
 
         return daoId;
     }
@@ -83,9 +84,9 @@ contract ProviderDaos is IProviderDaos {
         return daos[daoId].proposals[proposalId];
     }
 
-    function getMemberInfo(bytes32 daoId, address memberAddress) public view returns (bool isMember, bool isProvider, bool isRouter) {
+    function getMemberInfo(bytes32 daoId, address memberAddress) public view returns (bytes32 nodeId, bool isMember, bool isProvider, bool isRouter) {
         Member memory member = daos[daoId].members[memberAddress];
-        return (member.isMember, member.isProvider, member.isRouter);
+        return (member.nodeId, member.isMember, member.isProvider, member.isRouter);
     }
 
     function getQueueResponseTimeoutSeconds(bytes32 daoId) public view returns (uint256) {
@@ -113,15 +114,17 @@ contract ProviderDaos is IProviderDaos {
         _;
     }
 
-    function addMember(bytes32 daoId, uint256 proposalId, address _member) public {
+    function addMember(bytes32 daoId, uint256 proposalId, address _member, bytes32 _nodeId) public {
+        // TODO: check and deny if nodeId already exists in members
+
         Dao storage dao = daos[daoId];
         if (dao.isPermissioned) {
             require(msg.sender == dao.proposals[proposalId], "Only Proposal can execute permissioned AddMember");
         }
         require(!dao.members[_member].isMember, "Already a member");
-        dao.members[_member] = Member(_member, true, true, false);
+        dao.members[_member] = Member(_member, _nodeId, true, true, false);
         dao.numMembers += 1;
-        emit MemberAdded(daoId, _member);
+        emit MemberAdded(daoId, _member, _nodeId);
     }
 
     function changeMember(bytes32 daoId, uint256 proposalId, address _member, bool newIsMember, bool newIsProvider, bool newIsRouter) public {
@@ -170,11 +173,11 @@ contract ProviderDaos is IProviderDaos {
         emit IsPermissionedChanged(daoId, newIsPermissioned);
     }
 
-    function createProposalAddMember(bytes32 daoId, address _newMember) public onlyMember(daoId) returns (uint256) {
+    function createProposalAddMember(bytes32 daoId, address _newMember, bytes32 _nodeId) public onlyMember(daoId) returns (uint256) {
         Dao storage dao = daos[daoId];
         require(!dao.members[_newMember].isMember, "Cannot re-add a member");
         uint256 proposalId = dao.numProposals++;
-        AddMemberProposal newProposal = new AddMemberProposal(address(this), daoId, proposalId, msg.sender, _newMember);
+        AddMemberProposal newProposal = new AddMemberProposal(address(this), daoId, proposalId, msg.sender, _newMember, _nodeId);
         dao.proposals[proposalId] = address(newProposal);
         emit ProposalCreated(daoId, proposalId);
         return proposalId;
