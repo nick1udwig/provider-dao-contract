@@ -54,6 +54,9 @@ contract ProviderDaos is IProviderDaos {
         dao.members[msg.sender] = Member(msg.sender, _nodeId, true, false, true);
         dao.numMembers += 1;
         dao.numProposals = 0;
+        dao.queueResponseTimeoutSeconds = 1;  // NOTE: hardcode
+        dao.serveTimeoutSeconds = 60;         // NOTE: hardcode
+        dao.maxOutstandingPayments = 3;       // NOTE: hardcode
         dao.isPermissioned = true;
 
         emit DaoCreated(daoId);
