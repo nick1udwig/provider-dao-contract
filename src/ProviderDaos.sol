@@ -35,7 +35,7 @@ contract ProviderDaos is IProviderDaos {
 
     event DaoCreated(bytes32 daoId);
     event DaoDestroyed(bytes32 daoId);
-    event MemberAdded(bytes32 daoId, address member, bytes32 nodeId);
+    event MemberAdded(bytes32 daoId, address member, bytes32 nodeId, bool isMember, bool isProvider, bool isRouter);
     event MemberChanged(bytes32 daoId, address member, bool isMember, bool isProvider, bool isRouter);
     event ParametersChanged(bytes32 daoId, uint256 queueResponseTimeoutSeconds, uint256 serveTimeoutSeconds, uint256 maxOutstandingPayments);
     event IsPermissionedChanged(bytes32 daoId, bool isPermissioned);
@@ -57,7 +57,7 @@ contract ProviderDaos is IProviderDaos {
         dao.isPermissioned = true;
 
         emit DaoCreated(daoId);
-        emit MemberAdded(daoId, msg.sender, _nodeId);
+        emit MemberAdded(daoId, msg.sender, _nodeId, true, false, true);
 
         return daoId;
     }
@@ -124,7 +124,7 @@ contract ProviderDaos is IProviderDaos {
         require(!dao.members[_member].isMember, "Already a member");
         dao.members[_member] = Member(_member, _nodeId, true, true, false);
         dao.numMembers += 1;
-        emit MemberAdded(daoId, _member, _nodeId);
+        emit MemberAdded(daoId, _member, _nodeId, true, true, false);
     }
 
     function changeMember(bytes32 daoId, uint256 proposalId, address _member, bool newIsMember, bool newIsProvider, bool newIsRouter) public {
