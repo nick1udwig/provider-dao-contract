@@ -36,7 +36,7 @@ contract ProviderDaos is IProviderDaos {
     event DaoCreated(bytes32 daoId);
     event DaoDestroyed(bytes32 daoId);
     event MemberAdded(bytes32 daoId, address member, bytes32 nodeId, bool isProvider, bool isRouter);
-    event MemberChanged(bytes32 daoId, address member, bool isMember, bool isProvider, bool isRouter);
+    event MemberChanged(bytes32 daoId, address member, bytes32 nodeId, bool isMember, bool isProvider, bool isRouter);
     event ParametersChanged(bytes32 daoId, uint256 queueResponseTimeoutSeconds, uint256 serveTimeoutSeconds, uint256 maxOutstandingPayments);
     event IsPermissionedChanged(bytes32 daoId, bool isPermissioned);
     event ProposalCreated(bytes32 daoId, uint256 proposalId);
@@ -132,6 +132,7 @@ contract ProviderDaos is IProviderDaos {
 
     function changeMember(bytes32 daoId, uint256 proposalId, address _member, bool newIsMember, bool newIsProvider, bool newIsRouter) public {
         Dao storage dao = daos[daoId];
+        bytes32 _nodeId = dao.members[_member].nodeId;
         require(msg.sender == dao.proposals[proposalId], "Only Proposal can execute permissioned AddMember");
         require(dao.members[_member].isMember, "Must be a member");
         if (dao.members[_member].isMember != newIsMember) {
@@ -149,7 +150,7 @@ contract ProviderDaos is IProviderDaos {
                 destroyDao(daoId);
             }
         }
-        emit MemberChanged(daoId, _member, newIsMember, newIsProvider, newIsRouter);
+        emit MemberChanged(daoId, _member, _nodeId, newIsMember, newIsProvider, newIsRouter);
     }
 
     function changeParameters(bytes32 daoId, uint256 proposalId, uint256 newQueueResponseTimeoutSeconds, uint256 newServeTimeoutSeconds, uint256 newMaxOutstandingPayments) public {
